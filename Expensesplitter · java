@@ -1,0 +1,291 @@
+import java.util.*;
+
+public class Main {
+
+    public static void main(String[] args) {
+
+        Scanner sc = new Scanner(System.in);
+
+        System.out.println("=== Expense Splitter ===");
+
+        System.out.print("Enter number of people: ");
+        int n = Integer.parseInt(sc.nextLine());
+
+        Map<String, Person> people = new LinkedHashMap<>();
+
+        for (int i = 0; i < n; i++) {
+            System.out.print("Enter name of person " + (i + 1) + ": ");
+            String name = sc.nextLine();
+            people.put(name, new Person(name));
+        }
+
+        ExpenseManager expenseManager = new ExpenseManager(people);
+        BalanceManager balanceManager = new BalanceManager(people);
+        DebtSettlement debtSettlement = new DebtSettlement(people);
+
+        while (true) {
+
+            System.out.println("\n1. Add Expense");
+            System.out.println("2. Show Balances");
+            System.out.println("3. Settle Debts");
+            System.out.println("4. Exit");
+
+            System.out.print("Choose option: ");
+            int choice = Integer.parseInt(sc.nextLine());
+
+            switch (choice) {
+
+                case 1:
+                    expenseManager.addExpense(sc);
+                    break;
+
+                case 2:
+                    balanceManager.showBalances();
+                    break;
+
+                case 3:
+                    debtSettlement.settleDebts();
+                    break;
+
+                case 4:
+                    System.out.println("Exiting. Goodbye!");
+                    sc.close();
+                    return;
+
+                default:
+                    System.out.println("Invalid option.");
+            }
+        }
+    }
+}
+
+
+// Class 1: Person
+class Person {
+
+    String name;
+    double balance;
+
+    Person(String name) {
+        this.name = name;
+        balance = 0;
+    }
+}
+
+
+// Class 2: Expense
+class Expense {
+
+    String paidBy;
+    double amount;
+    List<String> splitAmong;
+
+    Expense(String paidBy, double amount, List<String> splitAmong) {
+        this.paidBy = paidBy;
+        this.amount = amount;
+        this.splitAmong = splitAmong;
+    }
+}
+
+
+// Class 3: ExpenseManager
+class ExpenseManager {
+
+    Map<String, Person> people;
+    List<Expense> expenses = new ArrayList<>();
+
+    ExpenseManager(Map<String, Person> people) {
+        this.people = people;
+    }
+
+    void addExpense(Scanner sc) {
+
+        try {
+
+            System.out.print("Who paid? ");
+            String paidBy = sc.nextLine();
+
+            if (!people.containsKey(paidBy)) {
+                throw new IllegalArgumentException("Person not found.");
+            }
+
+            System.out.print("Enter amount paid: ");
+            double amount = Double.parseDouble(sc.nextLine());
+
+            System.out.print("Split among how many people? ");
+            int count = Integer.parseInt(sc.nextLine());
+
+            List<String> splitAmong = new ArrayList<>();
+
+            for (int i = 0; i < count; i++) {
+
+                System.out.print("Enter name of person " + (i + 1) + ": ");
+                String name = sc.nextLine();
+
+                if (!people.containsKey(name)) {
+                    throw new IllegalArgumentException("Person not found.");
+                }
+
+                splitAmong.add(name);
+            }
+
+            double share = amount / count;
+
+            people.get(paidBy).balance += amount;
+
+            for (String name : splitAmong) {
+                people.get(name).balance -= share;
+            }
+
+            expenses.add(
+                new Expense(paidBy, amount, splitAmong)
+            );
+
+            System.out.println("Expense added successfully!");
+
+        } catch (NumberFormatException e) {
+
+            System.out.println("Please enter a valid number.");
+
+        } catch (IllegalArgumentException e) {
+
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+}
+
+
+// Class 4: BalanceManager
+class BalanceManager {
+
+    Map<String, Person> people;
+
+    BalanceManager(Map<String, Person> people) {
+        this.people = people;
+    }
+
+    void showBalances() {
+
+        System.out.println("\n--- Current Balances ---");
+
+        for (Person p : people.values()) {
+
+            if (p.balance > 0.01) {
+
+                System.out.printf(
+                    "%s should receive Rs. %.2f%n",
+                    p.name, p.balance
+                );
+
+            } else if (p.balance < -0.01) {
+
+                System.out.printf(
+                    "%s owes Rs. %.2f%n",
+                    p.name, -p.balance
+                );
+
+            } else {
+
+                System.out.println(
+                    p.name + " is settled up."
+                );
+            }
+        }
+    }
+}
+
+
+// Class 5: DebtSettlement
+class DebtSettlement {
+
+    Map<String, Person> people;
+
+    DebtSettlement(Map<String, Person> people) {
+        this.people = people;
+    }
+
+    void settleDebts() {
+
+        List<Person> creditors = new ArrayList<>();
+        List<Person> debtors = new ArrayList<>();
+
+        for (Person p : people.values()) {
+
+            if (p.balance > 0.01) {
+
+                Person copy = new Person(p.name);
+                copy.balance = p.balance;
+                creditors.add(copy);
+
+            } else if (p.balance < -0.01) {
+
+                Person copy = new Person(p.name);
+                copy.balance = p.balance;
+                debtors.add(copy);
+            }
+        }
+
+        creditors.sort(
+            (a, b) -> Double.compare(b.balance, a.balance)
+        );
+
+        debtors.sort(
+            (a, b) -> Double.compare(a.balance, b.balance)
+        );
+
+        System.out.println("\n--- Settlement Plan ---");
+
+        int i = 0;
+        int j = 0;
+        boolean transaction = false;
+
+        while (i < debtors.size() && j < creditors.size()) {
+
+            Person debtor = debtors.get(i);
+            Person creditor = creditors.get(j);
+
+            double amount = Math.min(
+                -debtor.balance,
+                creditor.balance
+            );
+
+            if (amount > 0.01) {
+
+                System.out.printf(
+                    "%s pays Rs. %.2f to %s%n",
+                    debtor.name,
+                    amount,
+                    creditor.name
+                );
+
+                transaction = true;
+            }
+
+            debtor.balance += amount;
+            creditor.balance -= amount;
+
+            if (Math.abs(debtor.balance) < 0.01) {
+                i++;
+            }
+
+            if (Math.abs(creditor.balance) < 0.01) {
+                j++;
+            }
+        }
+
+        if (!transaction) {
+            System.out.println(
+                "Everyone is already settled up!"
+            );
+        }
+    }
+}
+
+
+// Class 6: ProjectInfo
+class ProjectInfo {
+
+    void display() {
+        System.out.println("Expense Splitter Project");
+    }
+}
